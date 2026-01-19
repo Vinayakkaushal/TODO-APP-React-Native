@@ -26,7 +26,7 @@ export const toggleTodo = mutation({
     const todo = await ctx.db.get(args.id);
 
     if (!todo) {
-      throw new Error("Todo not found");
+      throw new ConvexError("Todo not found");
     }
 
     await ctx.db.patch(args.id, {
