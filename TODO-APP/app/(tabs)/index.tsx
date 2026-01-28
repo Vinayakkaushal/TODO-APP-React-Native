@@ -1,6 +1,6 @@
 import { createHomeStyles } from "@/assets/styles/home.styles";
 import useTheme from "@/hooks/useTheme";
-import { Alert, FlatList, StatusBar, Text, TouchableOpacity, View } from "react-native";
+import { Alert, FlatList, StatusBar, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Header from "@/components/Header";
@@ -11,14 +11,20 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { Ionicons } from "@expo/vector-icons";
 import EmptyState from "@/components/EmptyState";
+import { useState } from "react";
 
 type Todo = Doc<"todos">
 export default function Index() {
+
+  const [editingId , setEditingId] = useState<Id<"todos"> | null>(null)
+  const [editText , setEditText] = useState("");
+
   const { toggleDarkMode, colors } = useTheme();
   const homeStyles = createHomeStyles(colors);
   const toggleTodo = useMutation(api.todos.toggleTodo);
   const todos = useQuery(api.todos.getTodos)
   const deleteTodo = useMutation(api.todos.deleteTodo);
+  const updateTodo = useMutation(api.todos.updateTodo);
   const isLoading = todos===undefined;
 
   const handleToggleTodo= async (id : Id<"todos">)=>{
@@ -43,9 +49,28 @@ export default function Index() {
     }
   }
 
-  // const handleEditTodo = async (id)
+  const handleEditTodo = (todo : Todo)=>{
+    setEditText(todo.text)
+    setEditingId(todo._id)
+  }
+  const handleSaveEdit = async()=>{
+    if(editingId){
+      try {
+        await updateTodo({id:editingId , text:editText.trim()});
+        setEditingId(null);
+        setEditText(""); 
+      } catch (error) {
+        console.log("Error updating todo " , error)
+        Alert.alert("Error" , "Failed to update todo")
+      }
+    }
+  }
+  const handleCancelEdit =  ()=>{
+    setEditingId(null)
+    setEditText("")
+  }
   const renderTodoItem = ({item}:{item : Todo})=>{
-    
+    const isEditing = editingId ===item._id
     return (
       <View style={homeStyles.todoItemWrapper}>
         <LinearGradient
@@ -73,7 +98,44 @@ export default function Index() {
           </TouchableOpacity>
 
 
-          <View style={homeStyles.todoTextContainer}>
+          {
+            isEditing ? (
+              <View style={homeStyles.editContainer}>
+                <TextInput
+                  style={homeStyles.editInput}
+                  value = {editText}
+                  onChangeText={setEditText}
+                  autoFocus
+                  multiline
+                  placeholder="Edit your todo.."
+                  placeholderTextColor={colors.textMuted}
+                />
+                <View style={homeStyles.editButtons}>
+                  <TouchableOpacity onPress={handleSaveEdit} activeOpacity={0.8}>
+                    <LinearGradient
+                      colors={colors.gradients.success}
+                      style = {homeStyles.editButton}
+                    >
+                      <Ionicons name="checkmark" size={16} color="#fff"/>
+                      <Text style={homeStyles.editButtonText}>Save</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleCancelEdit} activeOpacity={0.8}>
+                    <LinearGradient
+                      colors={colors.gradients.muted}
+                      style={homeStyles.editButton}
+                    >
+                      <Ionicons name="close" size={16} color="#fff"/>
+                      <Text style={homeStyles.editButtonText}>Cancel</Text>
+
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+
+            ):(
+               <View style={homeStyles.todoTextContainer}>
             <Text
               style={[homeStyles.todoText
                 ,  item.isCompleted && {
@@ -87,7 +149,7 @@ export default function Index() {
             </Text>
 
             <View style={homeStyles.todoActions}>
-      <TouchableOpacity onPress={() => {}} activeOpacity={0.8}>
+      <TouchableOpacity onPress={() => handleEditTodo(item)} activeOpacity={0.8}>
         <LinearGradient
           colors={colors.gradients.warning}
           style={homeStyles.actionButton}
@@ -108,7 +170,10 @@ export default function Index() {
 
 
           </View>
+            )
+          }
         </LinearGradient>
+
       </View>
     )
   }
